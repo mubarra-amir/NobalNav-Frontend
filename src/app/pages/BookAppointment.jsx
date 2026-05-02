@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { Calendar as CalendarIcon, Clock, CheckCircle2, ArrowRight } from "lucide-react";
 import { format } from "date-fns";
 
+const API = "http://localhost:5000/api";
+
 export default function BookAppointment() {
   const [step, setStep] = useState(1);
   const [selectedDate, setSelectedDate] = useState(undefined);
@@ -51,11 +53,26 @@ export default function BookAppointment() {
       return;
     }
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const token = localStorage.getItem("nn_token");
+      const res = await fetch(`${API}/appointments/book`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify({
+          ...formData,
+          service: selectedService,
+          date: format(selectedDate, "yyyy-MM-dd"),
+          time: selectedTime,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
       setStep(5);
       toast.success("Appointment booked successfully!");
     } catch (error) {
-      toast.error("Something went wrong. Please try again.");
+      toast.error(error.message || "Something went wrong. Please try again.");
     }
   };
 

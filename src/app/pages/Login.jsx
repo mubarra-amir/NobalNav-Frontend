@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { Lock, Mail, Eye, EyeOff, User, Phone, ArrowRight, Shield } from "lucide-react";
 import logo from "../components/logo.png";
 
+const API = "http://localhost:5000/api";
+
 export default function Login({ setUser }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -27,19 +29,20 @@ export default function Login({ setUser }) {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await new Promise((r) => setTimeout(r, 1200));
-      const users = JSON.parse(localStorage.getItem("nn_users") || "[]");
-      const user = users.find(
-        (u) => u.email === loginData.email && u.password === loginData.password
-      );
-      if (user) {
-        localStorage.setItem("nn_user", JSON.stringify(user));
-        setUser(user);
-        toast.success(`Welcome back, ${user.fullName}!`);
-        navigate(from, { replace: true });
-      } else {
-        toast.error("Invalid email or password. Please try again.");
-      }
+      const res = await fetch(`${API}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(loginData),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      localStorage.setItem("nn_token", data.token);
+      localStorage.setItem("nn_user", JSON.stringify(data.user));
+      setUser(data.user);
+      toast.success(`Welcome back, ${data.user.fullName}!`);
+      navigate(from, { replace: true });
+    } catch (err) {
+      toast.error(err.message || "Invalid email or password. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -57,26 +60,25 @@ export default function Login({ setUser }) {
     }
     setIsLoading(true);
     try {
-      await new Promise((r) => setTimeout(r, 1200));
-      const users = JSON.parse(localStorage.getItem("nn_users") || "[]");
-      if (users.find((u) => u.email === signupData.email)) {
-        toast.error("An account with this email already exists.");
-        return;
-      }
-      const newUser = {
-        id: Date.now().toString(),
-        fullName: signupData.fullName,
-        email: signupData.email,
-        phone: signupData.phone,
-        password: signupData.password,
-        createdAt: new Date().toISOString(),
-      };
-      users.push(newUser);
-      localStorage.setItem("nn_users", JSON.stringify(users));
-      localStorage.setItem("nn_user", JSON.stringify(newUser));
-      setUser(newUser);
-      toast.success(`Account created! Welcome, ${newUser.fullName}!`);
+      const res = await fetch(`${API}/auth/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: signupData.fullName,
+          email: signupData.email,
+          phone: signupData.phone,
+          password: signupData.password,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      localStorage.setItem("nn_token", data.token);
+      localStorage.setItem("nn_user", JSON.stringify(data.user));
+      setUser(data.user);
+      toast.success(`Account created! Welcome, ${data.user.fullName}!`);
       navigate(from, { replace: true });
+    } catch (err) {
+      toast.error(err.message || "Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -118,7 +120,6 @@ export default function Login({ setUser }) {
         </div>
 
         <div className="relative z-10 text-white text-center">
-          {/* LOGO — replaces globe icon */}
           <div
             className="w-28 h-28 bg-white/10 backdrop-blur-sm rounded-3xl flex items-center justify-center mx-auto mb-8 border border-white/20"
             style={{ animation: "pulseGlow 3s ease-in-out infinite" }}
@@ -168,7 +169,6 @@ export default function Login({ setUser }) {
       {/* Right Panel */}
       <div className="w-full lg:w-1/2 flex items-center justify-center bg-gray-50 px-6 py-12 anim-right">
         <div className="w-full max-w-md">
-          {/* Logo for mobile + brand mark */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center gap-3 mb-5">
               <img

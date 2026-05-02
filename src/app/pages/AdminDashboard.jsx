@@ -7,74 +7,67 @@ import { Badge } from "../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Calendar, Users, CheckCircle, Clock, LogOut, Search, Download } from "lucide-react";
+import { toast } from "sonner";
+
+const API = "http://localhost:5000/api";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-
-  const [bookings] = useState([
-    {
-      id: "BK001", name: "Rahul Sharma", email: "rahul@example.com",
-      phone: "+91 98765 43210", date: "2026-04-05", time: "10:00 AM",
-      service: "Study Abroad Consultation - UK", status: "confirmed",
-      country: "United Kingdom", educationLevel: "Undergraduate",
-      message: "Interested in Computer Science programs", bookedAt: "2026-03-28T10:30:00",
-    },
-    {
-      id: "BK002", name: "Priya Patel", email: "priya@example.com",
-      phone: "+91 87654 32109", date: "2026-04-06", time: "02:00 PM",
-      service: "Study Abroad Consultation - USA", status: "pending",
-      country: "United States", educationLevel: "Graduate/Master's",
-      message: "Looking for MBA programs", bookedAt: "2026-03-28T14:15:00",
-    },
-    {
-      id: "BK003", name: "Amit Kumar", email: "amit@example.com",
-      phone: "+91 76543 21098", date: "2026-04-07", time: "11:30 AM",
-      service: "Visa Assistance", status: "confirmed",
-      country: "Canada", educationLevel: "Graduate/Master's", bookedAt: "2026-03-29T09:00:00",
-    },
-    {
-      id: "BK004", name: "Sneha Reddy", email: "sneha@example.com",
-      phone: "+91 65432 10987", date: "2026-03-30", time: "03:00 PM",
-      service: "Study Abroad Consultation - Australia", status: "completed",
-      country: "Australia", educationLevel: "Undergraduate",
-      message: "Want to study Engineering", bookedAt: "2026-03-25T11:20:00",
-    },
-    {
-      id: "BK005", name: "Arjun Mehta", email: "arjun@example.com",
-      phone: "+91 54321 09876", date: "2026-04-08", time: "09:30 AM",
-      service: "Study Abroad Consultation - Europe", status: "pending",
-      country: "Germany", educationLevel: "PhD/Doctorate",
-      message: "Research opportunities in Physics", bookedAt: "2026-03-29T16:45:00",
-    },
-    {
-      id: "BK006", name: "Maya Singh", email: "maya@example.com",
-      phone: "+91 43210 98765", date: "2026-04-01", time: "04:30 PM",
-      service: "University Selection Guidance", status: "completed",
-      country: "United Kingdom", educationLevel: "Graduate/Master's", bookedAt: "2026-03-26T13:30:00",
-    },
-  ]);
-
-  const stats = [
-    { icon: Calendar, label: "Total Bookings", value: bookings.length.toString(), color: "bg-blue-100 text-blue-600" },
-    { icon: Clock, label: "Pending", value: bookings.filter((b) => b.status === "pending").length.toString(), color: "bg-yellow-100 text-yellow-600" },
-    { icon: CheckCircle, label: "Confirmed", value: bookings.filter((b) => b.status === "confirmed").length.toString(), color: "bg-green-100 text-green-600" },
-    { icon: Users, label: "Completed", value: bookings.filter((b) => b.status === "completed").length.toString(), color: "bg-purple-100 text-purple-600" },
-  ];
+  const [bookings, setBookings] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem("adminToken");
     if (!token) {
       navigate("/admin");
+      return;
     }
-    return () => {
-      // cleanup on unmount
-    };
+    fetchBookings(token);
   }, [navigate]);
+
+  const fetchBookings = async (token) => {
+    try {
+      const res = await fetch(`${API}/appointments/all`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401) {
+        localStorage.removeItem("adminToken");
+        navigate("/admin");
+        return;
+      }
+      const data = await res.json();
+      setBookings(data);
+    } catch (err) {
+      toast.error("Failed to load bookings.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleStatusChange = async (id, newStatus) => {
+    const token = localStorage.getItem("adminToken");
+    try {
+      const res = await fetch(`${API}/appointments/${id}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      const updated = await res.json();
+      setBookings((prev) => prev.map((b) => (b._id === id ? updated : b)));
+      toast.success(`Status updated to ${newStatus}`);
+    } catch {
+      toast.error("Failed to update status.");
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("adminToken");
+    localStorage.removeItem("adminUser");
     navigate("/admin");
   };
 
@@ -85,21 +78,28 @@ export default function AdminDashboard() {
       completed: "bg-purple-100 text-purple-800",
       cancelled: "bg-red-100 text-red-800",
     };
-    return variants[status];
+    return variants[status] || "bg-gray-100 text-gray-800";
   };
 
   const filteredBookings = bookings.filter((booking) => {
     const matchesSearch =
-      booking.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.id.toLowerCase().includes(searchTerm.toLowerCase());
+      booking.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      booking.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      booking._id?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === "all" || booking.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
 
+  const stats = [
+    { icon: Calendar, label: "Total Bookings", value: bookings.length.toString(), color: "bg-blue-100 text-blue-600" },
+    { icon: Clock, label: "Pending", value: bookings.filter((b) => b.status === "pending").length.toString(), color: "bg-yellow-100 text-yellow-600" },
+    { icon: CheckCircle, label: "Confirmed", value: bookings.filter((b) => b.status === "confirmed").length.toString(), color: "bg-green-100 text-green-600" },
+    { icon: Users, label: "Completed", value: bookings.filter((b) => b.status === "completed").length.toString(), color: "bg-purple-100 text-purple-600" },
+  ];
+
   const exportToCSV = () => {
     const headers = ["ID", "Name", "Email", "Phone", "Date", "Time", "Service", "Status"];
-    const rows = filteredBookings.map((b) => [b.id, b.name, b.email, b.phone, b.date, b.time, b.service, b.status]);
+    const rows = filteredBookings.map((b) => [b._id, b.name, b.email, b.phone, b.date, b.time, b.service, b.status]);
     const csv = [headers, ...rows].map((row) => row.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -147,88 +147,59 @@ export default function AdminDashboard() {
 
         <Card>
           <CardContent className="p-6">
-            <Tabs defaultValue="all">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-                <TabsList>
-                  <TabsTrigger value="all" onClick={() => setFilterStatus("all")}>All Bookings</TabsTrigger>
-                  <TabsTrigger value="pending" onClick={() => setFilterStatus("pending")}>Pending</TabsTrigger>
-                  <TabsTrigger value="confirmed" onClick={() => setFilterStatus("confirmed")}>Confirmed</TabsTrigger>
-                  <TabsTrigger value="completed" onClick={() => setFilterStatus("completed")}>Completed</TabsTrigger>
-                </TabsList>
-                <div className="flex gap-2 w-full md:w-auto">
-                  <div className="relative flex-1 md:w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input placeholder="Search bookings..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" />
+            {isLoading ? (
+              <div className="text-center py-12 text-gray-500">Loading bookings...</div>
+            ) : (
+              <Tabs defaultValue="all">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                  <TabsList>
+                    <TabsTrigger value="all" onClick={() => setFilterStatus("all")}>All Bookings</TabsTrigger>
+                    <TabsTrigger value="pending" onClick={() => setFilterStatus("pending")}>Pending</TabsTrigger>
+                    <TabsTrigger value="confirmed" onClick={() => setFilterStatus("confirmed")}>Confirmed</TabsTrigger>
+                    <TabsTrigger value="completed" onClick={() => setFilterStatus("completed")}>Completed</TabsTrigger>
+                  </TabsList>
+                  <div className="flex gap-2 w-full md:w-auto">
+                    <div className="relative flex-1 md:w-64">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input placeholder="Search bookings..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" />
+                    </div>
+                    <Button onClick={exportToCSV} variant="outline" className="flex items-center gap-2">
+                      <Download className="w-4 h-4" />
+                      Export
+                    </Button>
                   </div>
-                  <Button onClick={exportToCSV} variant="outline" className="flex items-center gap-2">
-                    <Download className="w-4 h-4" />
-                    Export
-                  </Button>
                 </div>
-              </div>
 
-              <TabsContent value="all" className="mt-0">
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Booking ID</TableHead>
-                        <TableHead>Student Name</TableHead>
-                        <TableHead>Contact</TableHead>
-                        <TableHead>Date & Time</TableHead>
-                        <TableHead>Service</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredBookings.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={7} className="text-center text-gray-500 py-8">No bookings found</TableCell>
-                        </TableRow>
-                      ) : (
-                        filteredBookings.map((booking) => (
-                          <TableRow key={booking.id}>
-                            <TableCell className="font-medium">{booking.id}</TableCell>
-                            <TableCell>
-                              <div className="font-medium">{booking.name}</div>
-                              <div className="text-sm text-gray-500">{booking.educationLevel}</div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm">{booking.email}</div>
-                              <div className="text-sm text-gray-500">{booking.phone}</div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm">{new Date(booking.date).toLocaleDateString()}</div>
-                              <div className="text-sm text-gray-500">{booking.time}</div>
-                            </TableCell>
-                            <TableCell><div className="text-sm max-w-xs">{booking.service}</div></TableCell>
-                            <TableCell>
-                              <Badge className={getStatusBadge(booking.status)}>{booking.status}</Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex gap-2">
-                                <Button size="sm" variant="outline">View</Button>
-                                <Button size="sm" variant="outline">Edit</Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </TabsContent>
-              <TabsContent value="pending" className="mt-0">
-                <p className="text-gray-600">Showing {filteredBookings.length} pending booking(s)</p>
-              </TabsContent>
-              <TabsContent value="confirmed" className="mt-0">
-                <p className="text-gray-600">Showing {filteredBookings.length} confirmed booking(s)</p>
-              </TabsContent>
-              <TabsContent value="completed" className="mt-0">
-                <p className="text-gray-600">Showing {filteredBookings.length} completed booking(s)</p>
-              </TabsContent>
-            </Tabs>
+                <TabsContent value="all" className="mt-0">
+                  <BookingsTable
+                    bookings={filteredBookings}
+                    getStatusBadge={getStatusBadge}
+                    onStatusChange={handleStatusChange}
+                  />
+                </TabsContent>
+                <TabsContent value="pending" className="mt-0">
+                  <BookingsTable
+                    bookings={filteredBookings}
+                    getStatusBadge={getStatusBadge}
+                    onStatusChange={handleStatusChange}
+                  />
+                </TabsContent>
+                <TabsContent value="confirmed" className="mt-0">
+                  <BookingsTable
+                    bookings={filteredBookings}
+                    getStatusBadge={getStatusBadge}
+                    onStatusChange={handleStatusChange}
+                  />
+                </TabsContent>
+                <TabsContent value="completed" className="mt-0">
+                  <BookingsTable
+                    bookings={filteredBookings}
+                    getStatusBadge={getStatusBadge}
+                    onStatusChange={handleStatusChange}
+                  />
+                </TabsContent>
+              </Tabs>
+            )}
           </CardContent>
         </Card>
 
@@ -238,7 +209,7 @@ export default function AdminDashboard() {
               <h3 className="text-xl text-blue-900 mb-4">Recent Bookings</h3>
               <div className="space-y-4">
                 {bookings.slice(0, 5).map((booking) => (
-                  <div key={booking.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div key={booking._id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                         <Users className="w-5 h-5 text-blue-600" />
@@ -253,11 +224,83 @@ export default function AdminDashboard() {
                     <Badge className={getStatusBadge(booking.status)}>{booking.status}</Badge>
                   </div>
                 ))}
+                {bookings.length === 0 && !isLoading && (
+                  <p className="text-center text-gray-500 py-4">No bookings yet.</p>
+                )}
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
+    </div>
+  );
+}
+
+function BookingsTable({ bookings, getStatusBadge, onStatusChange }) {
+  return (
+    <div className="overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Contact</TableHead>
+            <TableHead>Date & Time</TableHead>
+            <TableHead>Service</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {bookings.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={6} className="text-center text-gray-500 py-8">No bookings found</TableCell>
+            </TableRow>
+          ) : (
+            bookings.map((booking) => (
+              <TableRow key={booking._id}>
+                <TableCell>
+                  <div className="font-medium">{booking.name}</div>
+                  <div className="text-sm text-gray-500">{booking.educationLevel}</div>
+                </TableCell>
+                <TableCell>
+                  <div className="text-sm">{booking.email}</div>
+                  <div className="text-sm text-gray-500">{booking.phone}</div>
+                </TableCell>
+                <TableCell>
+                  <div className="text-sm">{new Date(booking.date).toLocaleDateString()}</div>
+                  <div className="text-sm text-gray-500">{booking.time}</div>
+                </TableCell>
+                <TableCell><div className="text-sm max-w-xs">{booking.service}</div></TableCell>
+                <TableCell>
+                  <Badge className={getStatusBadge(booking.status)}>{booking.status}</Badge>
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-2 flex-wrap">
+                    {booking.status === "pending" && (
+                      <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white text-xs"
+                        onClick={() => onStatusChange(booking._id, "confirmed")}>
+                        Confirm
+                      </Button>
+                    )}
+                    {booking.status === "confirmed" && (
+                      <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white text-xs"
+                        onClick={() => onStatusChange(booking._id, "completed")}>
+                        Complete
+                      </Button>
+                    )}
+                    {booking.status !== "cancelled" && (
+                      <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 text-xs"
+                        onClick={() => onStatusChange(booking._id, "cancelled")}>
+                        Cancel
+                      </Button>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
     </div>
   );
 }

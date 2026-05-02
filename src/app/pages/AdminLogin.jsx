@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { Lock, Mail, Eye, EyeOff, Shield, Users, ArrowRight } from "lucide-react";
 import logo from "../components/logo.png";
 
+const API = "http://localhost:5000/api";
+
 export default function AdminLogin({ setIsLoggedIn }) {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
@@ -22,20 +24,24 @@ export default function AdminLogin({ setIsLoggedIn }) {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      if (
-        credentials.email === "admin@nobalnavigator.com" &&
-        credentials.password === "admin123"
-      ) {
-        localStorage.setItem("adminToken", "mock-jwt-token-12345");
-        setIsLoggedIn(true);
-        toast.success("Login successful!");
-        navigate("/admin/dashboard");
-      } else {
-        toast.error("Invalid credentials. Try admin@nobalnavigator.com / admin123");
+      const res = await fetch(`${API}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credentials),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      if (data.user.role !== "admin") {
+        toast.error("Access denied. This account does not have admin privileges.");
+        return;
       }
+      localStorage.setItem("adminToken", data.token);
+      localStorage.setItem("adminUser", JSON.stringify(data.user));
+      setIsLoggedIn(true);
+      toast.success("Login successful!");
+      navigate("/admin/dashboard");
     } catch (error) {
-      toast.error("Something went wrong. Please try again.");
+      toast.error(error.message || "Invalid credentials. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -75,7 +81,6 @@ export default function AdminLogin({ setIsLoggedIn }) {
             <span className="text-blue-200 text-sm">Restricted Access</span>
           </div>
 
-          {/* LOGO instead of lock icon */}
           <div
             className="w-24 h-24 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm rounded-3xl flex items-center justify-center mx-auto mb-5 border border-white/20 logo-pulse"
           >
@@ -150,13 +155,6 @@ export default function AdminLogin({ setIsLoggedIn }) {
                 )}
               </Button>
             </form>
-
-            <div className="mt-6 p-4 bg-blue-900/30 border border-blue-700/30 rounded-lg">
-              <p className="text-xs text-slate-400 text-center mb-1.5">Demo Credentials</p>
-              <p className="text-xs text-slate-300 text-center">
-                admin@nobalnavigator.com · admin123
-              </p>
-            </div>
           </CardContent>
         </Card>
 
