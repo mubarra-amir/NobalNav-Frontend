@@ -7,8 +7,7 @@ import { Label } from "../components/ui/label";
 import { toast } from "sonner";
 import { Lock, Mail, Eye, EyeOff, Shield, Users, ArrowRight } from "lucide-react";
 import logo from "../components/logo.png";
-
-const API = "http://localhost:5000/api";
+import api from "../../api";
 
 export default function AdminLogin({ setIsLoggedIn }) {
   const navigate = useNavigate();
@@ -24,24 +23,22 @@ export default function AdminLogin({ setIsLoggedIn }) {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const res = await fetch(`${API}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(credentials),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      const { data } = await api.post("/auth/login", credentials);
+
       if (data.user.role !== "admin") {
         toast.error("Access denied. This account does not have admin privileges.");
         return;
       }
+
+      // Store admin token and user in localStorage so it survives page refresh
       localStorage.setItem("adminToken", data.token);
       localStorage.setItem("adminUser", JSON.stringify(data.user));
+
       setIsLoggedIn(true);
       toast.success("Login successful!");
       navigate("/admin/dashboard");
     } catch (error) {
-      toast.error(error.message || "Invalid credentials. Please try again.");
+      toast.error(error.response?.data?.message || "Invalid credentials. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -81,18 +78,9 @@ export default function AdminLogin({ setIsLoggedIn }) {
             <span className="text-blue-200 text-sm">Restricted Access</span>
           </div>
 
-          <div
-            className="w-24 h-24 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm rounded-3xl flex items-center justify-center mx-auto mb-5 border border-white/20 logo-pulse"
-          >
-            <img
-              src={logo}
-              alt="Nobal Navigator"
-              className="w-16 h-16 object-contain drop-shadow-lg"
-              onError={(e) => {
-                e.currentTarget.style.display = "none";
-                e.currentTarget.nextElementSibling.style.display = "flex";
-              }}
-            />
+          <div className="w-24 h-24 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm rounded-3xl flex items-center justify-center mx-auto mb-5 border border-white/20 logo-pulse">
+            <img src={logo} alt="Nobal Navigator" className="w-16 h-16 object-contain drop-shadow-lg"
+              onError={(e) => { e.currentTarget.style.display = "none"; e.currentTarget.nextElementSibling.style.display = "flex"; }} />
             <div className="w-16 h-16 items-center justify-center hidden">
               <Lock className="w-10 h-10 text-white" />
             </div>
@@ -109,12 +97,10 @@ export default function AdminLogin({ setIsLoggedIn }) {
                 <Label htmlFor="email" className="text-slate-300 font-medium text-sm">Email Address</Label>
                 <div className="relative mt-1.5">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <Input
-                    id="email" name="email" type="email" value={credentials.email}
+                  <Input id="email" name="email" type="email" value={credentials.email}
                     onChange={handleChange} placeholder="admin@nobalnavigator.com"
                     className="pl-10 h-11 bg-white/10 border-white/20 text-white placeholder:text-slate-500 focus:border-blue-400 transition-colors"
-                    required
-                  />
+                    required />
                 </div>
               </div>
 
@@ -122,27 +108,20 @@ export default function AdminLogin({ setIsLoggedIn }) {
                 <Label htmlFor="password" className="text-slate-300 font-medium text-sm">Password</Label>
                 <div className="relative mt-1.5">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <Input
-                    id="password" name="password" type={showPassword ? "text" : "password"}
+                  <Input id="password" name="password" type={showPassword ? "text" : "password"}
                     value={credentials.password} onChange={handleChange}
                     placeholder="Enter admin password"
                     className="pl-10 pr-10 h-11 bg-white/10 border-white/20 text-white placeholder:text-slate-500 focus:border-blue-400 transition-colors"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
-                  >
+                    required />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors">
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
 
-              <Button
-                type="submit" disabled={isLoading}
-                className="w-full h-11 bg-blue-600 hover:bg-blue-500 text-white font-semibold mt-2 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-900/50"
-              >
+              <Button type="submit" disabled={isLoading}
+                className="w-full h-11 bg-blue-600 hover:bg-blue-500 text-white font-semibold mt-2 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-900/50">
                 {isLoading ? (
                   <span className="flex items-center gap-2">
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -167,10 +146,7 @@ export default function AdminLogin({ setIsLoggedIn }) {
             <span className="text-xs text-slate-600">Not admin?</span>
             <div className="h-px bg-white/10 flex-1" />
           </div>
-          <Link
-            to="/login"
-            className="inline-flex items-center gap-1.5 text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors"
-          >
+          <Link to="/login" className="inline-flex items-center gap-1.5 text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors">
             <Users className="w-4 h-4" />
             Student / User Login
           </Link>

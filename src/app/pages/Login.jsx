@@ -7,8 +7,7 @@ import { Label } from "../components/ui/label";
 import { toast } from "sonner";
 import { Lock, Mail, Eye, EyeOff, User, Phone, ArrowRight, Shield } from "lucide-react";
 import logo from "../components/logo.png";
-
-const API = "http://localhost:5000/api";
+import api from "../../api";   // ← axios instance with JWT interceptor
 
 export default function Login({ setUser }) {
   const navigate = useNavigate();
@@ -29,20 +28,16 @@ export default function Login({ setUser }) {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const res = await fetch(`${API}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(loginData),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      // axios returns response.data directly — no need to check res.ok
+      const { data } = await api.post("/auth/login", loginData);
       localStorage.setItem("nn_token", data.token);
       localStorage.setItem("nn_user", JSON.stringify(data.user));
       setUser(data.user);
       toast.success(`Welcome back, ${data.user.fullName}!`);
       navigate(from, { replace: true });
     } catch (err) {
-      toast.error(err.message || "Invalid email or password. Please try again.");
+      // axios wraps server error messages in err.response.data.message
+      toast.error(err.response?.data?.message || "Invalid email or password. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -60,25 +55,19 @@ export default function Login({ setUser }) {
     }
     setIsLoading(true);
     try {
-      const res = await fetch(`${API}/auth/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fullName: signupData.fullName,
-          email: signupData.email,
-          phone: signupData.phone,
-          password: signupData.password,
-        }),
+      const { data } = await api.post("/auth/signup", {
+        fullName: signupData.fullName,
+        email: signupData.email,
+        phone: signupData.phone,
+        password: signupData.password,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
       localStorage.setItem("nn_token", data.token);
       localStorage.setItem("nn_user", JSON.stringify(data.user));
       setUser(data.user);
       toast.success(`Account created! Welcome, ${data.user.fullName}!`);
       navigate(from, { replace: true });
     } catch (err) {
-      toast.error(err.message || "Something went wrong. Please try again.");
+      toast.error(err.response?.data?.message || "Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -105,7 +94,6 @@ export default function Login({ setUser }) {
 
       {/* Left Panel */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-blue-950 via-blue-900 to-indigo-900 items-center justify-center p-12 anim-left">
-        {/* Animated orbs */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute w-96 h-96 rounded-full opacity-10 bg-blue-400"
             style={{ top: "-10%", left: "-10%", animation: "floatOrb1 8s ease-in-out infinite" }} />
@@ -124,39 +112,27 @@ export default function Login({ setUser }) {
             className="w-28 h-28 bg-white/10 backdrop-blur-sm rounded-3xl flex items-center justify-center mx-auto mb-8 border border-white/20"
             style={{ animation: "pulseGlow 3s ease-in-out infinite" }}
           >
-            <img
-              src={logo}
-              alt="Nobal Navigator"
-              className="w-20 h-20 object-contain drop-shadow-lg"
-              onError={(e) => {
-                e.currentTarget.style.display = "none";
-                e.currentTarget.nextElementSibling.style.display = "block";
-              }}
-            />
+            <img src={logo} alt="Nobal Navigator" className="w-20 h-20 object-contain drop-shadow-lg"
+              onError={(e) => { e.currentTarget.style.display = "none"; e.currentTarget.nextElementSibling.style.display = "block"; }} />
             <span className="text-white text-3xl font-black hidden">NN</span>
           </div>
 
           <h2 className="text-4xl font-bold mb-3 leading-tight">
             Your Gateway to<br />
-            <span style={{
-              background: "linear-gradient(135deg, #60a5fa, #a5f3fc)",
-              WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent"
-            }}>Global Education</span>
+            <span style={{ background: "linear-gradient(135deg, #60a5fa, #a5f3fc)", WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+              Global Education
+            </span>
           </h2>
           <p className="text-blue-200 text-lg mb-10">Expert consultancy for study abroad programs and visa assistance worldwide</p>
 
           <div className="grid grid-cols-2 gap-4 text-center">
-            {[
-              { num: "1000+", label: "Students Placed" },
-              { num: "98%", label: "Success Rate" },
-              { num: "50+", label: "Universities" },
-              { num: "9", label: "Countries" },
-            ].map((s, i) => (
-              <div key={i} className="stat-card bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/10 hover:bg-white/15 transition-colors duration-300">
-                <div className="text-2xl font-bold text-blue-300">{s.num}</div>
-                <div className="text-blue-200 text-sm">{s.label}</div>
-              </div>
-            ))}
+            {[{ num: "1000+", label: "Students Placed" }, { num: "98%", label: "Success Rate" }, { num: "50+", label: "Universities" }, { num: "9", label: "Countries" }]
+              .map((s, i) => (
+                <div key={i} className="stat-card bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/10 hover:bg-white/15 transition-colors duration-300">
+                  <div className="text-2xl font-bold text-blue-300">{s.num}</div>
+                  <div className="text-blue-200 text-sm">{s.label}</div>
+                </div>
+              ))}
           </div>
 
           <div className="mt-10 flex items-center justify-center gap-2 text-blue-200 text-sm">
@@ -171,14 +147,8 @@ export default function Login({ setUser }) {
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <div className="inline-flex items-center gap-3 mb-5">
-              <img
-                src={logo}
-                alt="Nobal Navigator"
-                className="h-12 w-auto object-contain"
-                onError={(e) => {
-                  e.currentTarget.style.display = "none";
-                }}
-              />
+              <img src={logo} alt="Nobal Navigator" className="h-12 w-auto object-contain"
+                onError={(e) => { e.currentTarget.style.display = "none"; }} />
               <div className="text-left">
                 <div className="text-blue-900 font-bold text-lg leading-none">Nobal Navigator</div>
                 <div className="text-gray-500 text-xs">Pvt Ltd</div>
@@ -188,28 +158,18 @@ export default function Login({ setUser }) {
               {mode === "login" ? "Welcome back" : "Create account"}
             </h1>
             <p className="text-gray-500 mt-2">
-              {mode === "login"
-                ? "Sign in to book your consultation"
-                : "Join thousands of students studying abroad"}
+              {mode === "login" ? "Sign in to book your consultation" : "Join thousands of students studying abroad"}
             </p>
           </div>
 
           {/* Toggle Tabs */}
           <div className="flex bg-gray-200 rounded-xl p-1 mb-8">
-            <button
-              onClick={() => setMode("login")}
-              className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                mode === "login" ? "bg-white text-blue-700 shadow-sm" : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
+            <button onClick={() => setMode("login")}
+              className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${mode === "login" ? "bg-white text-blue-700 shadow-sm" : "text-gray-600 hover:text-gray-900"}`}>
               Sign In
             </button>
-            <button
-              onClick={() => setMode("signup")}
-              className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                mode === "signup" ? "bg-white text-blue-700 shadow-sm" : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
+            <button onClick={() => setMode("signup")}
+              className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${mode === "signup" ? "bg-white text-blue-700 shadow-sm" : "text-gray-600 hover:text-gray-900"}`}>
               Create Account
             </button>
           </div>
@@ -222,27 +182,20 @@ export default function Login({ setUser }) {
                     <Label htmlFor="login-email" className="text-gray-700 font-medium">Email Address</Label>
                     <div className="relative mt-1.5">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <Input
-                        id="login-email" type="email" value={loginData.email}
+                      <Input id="login-email" type="email" value={loginData.email}
                         onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
                         placeholder="you@example.com"
-                        className="pl-10 h-11 border-gray-200 focus:border-blue-400 transition-colors"
-                        required
-                      />
+                        className="pl-10 h-11 border-gray-200 focus:border-blue-400 transition-colors" required />
                     </div>
                   </div>
                   <div>
                     <Label htmlFor="login-password" className="text-gray-700 font-medium">Password</Label>
                     <div className="relative mt-1.5">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <Input
-                        id="login-password" type={showPassword ? "text" : "password"}
-                        value={loginData.password}
+                      <Input id="login-password" type={showPassword ? "text" : "password"} value={loginData.password}
                         onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
                         placeholder="Enter your password"
-                        className="pl-10 pr-10 h-11 border-gray-200 focus:border-blue-400 transition-colors"
-                        required
-                      />
+                        className="pl-10 pr-10 h-11 border-gray-200 focus:border-blue-400 transition-colors" required />
                       <button type="button" onClick={() => setShowPassword(!showPassword)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}

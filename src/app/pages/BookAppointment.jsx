@@ -9,8 +9,7 @@ import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
 import { Calendar as CalendarIcon, Clock, CheckCircle2, ArrowRight } from "lucide-react";
 import { format } from "date-fns";
-
-const API = "http://localhost:5000/api";
+import api from "../../api";   // ← axios instance with JWT interceptor
 
 export default function BookAppointment() {
   const [step, setStep] = useState(1);
@@ -53,26 +52,17 @@ export default function BookAppointment() {
       return;
     }
     try {
-      const token = localStorage.getItem("nn_token");
-      const res = await fetch(`${API}/appointments/book`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-        body: JSON.stringify({
-          ...formData,
-          service: selectedService,
-          date: format(selectedDate, "yyyy-MM-dd"),
-          time: selectedTime,
-        }),
+      // JWT token is automatically attached by the axios interceptor in api.js
+      await api.post("/appointments/book", {
+        ...formData,
+        service: selectedService,
+        date: format(selectedDate, "yyyy-MM-dd"),
+        time: selectedTime,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
       setStep(5);
       toast.success("Appointment booked successfully!");
     } catch (error) {
-      toast.error(error.message || "Something went wrong. Please try again.");
+      toast.error(error.response?.data?.message || "Something went wrong. Please try again.");
     }
   };
 
@@ -115,7 +105,8 @@ export default function BookAppointment() {
                 <div>
                   <h2 className="text-2xl text-blue-900 mb-6">Select a Date</h2>
                   <div className="flex justify-center">
-                    <Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} disabled={(date) => date < new Date() || isWeekend(date)} className="rounded-md border" />
+                    <Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate}
+                      disabled={(date) => date < new Date() || isWeekend(date)} className="rounded-md border" />
                   </div>
                   {selectedDate && (
                     <div className="mt-6 p-4 bg-blue-50 rounded-lg text-center">
@@ -136,7 +127,8 @@ export default function BookAppointment() {
                   <p className="text-gray-600 mb-6">Selected Date: <span className="font-semibold">{selectedDate && format(selectedDate, "PPPP")}</span></p>
                   <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
                     {timeSlots.map((time) => (
-                      <button key={time} onClick={() => setSelectedTime(time)} className={`p-3 rounded-lg border-2 transition-all ${selectedTime === time ? "border-blue-600 bg-blue-50 text-blue-900" : "border-gray-200 hover:border-blue-300"}`}>
+                      <button key={time} onClick={() => setSelectedTime(time)}
+                        className={`p-3 rounded-lg border-2 transition-all ${selectedTime === time ? "border-blue-600 bg-blue-50 text-blue-900" : "border-gray-200 hover:border-blue-300"}`}>
                         <Clock className="w-4 h-4 mx-auto mb-1" />
                         <span className="text-sm">{time}</span>
                       </button>
@@ -144,7 +136,9 @@ export default function BookAppointment() {
                   </div>
                   <div className="mt-8 flex justify-between">
                     <Button onClick={() => setStep(step - 1)} variant="outline">Back</Button>
-                    <Button onClick={handleNext} disabled={!selectedTime} className="bg-blue-600 hover:bg-blue-700">Next Step <ArrowRight className="ml-2 w-4 h-4" /></Button>
+                    <Button onClick={handleNext} disabled={!selectedTime} className="bg-blue-600 hover:bg-blue-700">
+                      Next Step <ArrowRight className="ml-2 w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
               )}
@@ -154,7 +148,8 @@ export default function BookAppointment() {
                   <h2 className="text-2xl text-blue-900 mb-6">Select Service</h2>
                   <div className="space-y-3">
                     {services.map((service) => (
-                      <button key={service} onClick={() => setSelectedService(service)} className={`w-full p-4 rounded-lg border-2 text-left transition-all ${selectedService === service ? "border-blue-600 bg-blue-50" : "border-gray-200 hover:border-blue-300"}`}>
+                      <button key={service} onClick={() => setSelectedService(service)}
+                        className={`w-full p-4 rounded-lg border-2 text-left transition-all ${selectedService === service ? "border-blue-600 bg-blue-50" : "border-gray-200 hover:border-blue-300"}`}>
                         <div className="flex items-center gap-3">
                           <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedService === service ? "border-blue-600" : "border-gray-300"}`}>
                             {selectedService === service && <div className="w-3 h-3 bg-blue-600 rounded-full" />}
@@ -166,7 +161,9 @@ export default function BookAppointment() {
                   </div>
                   <div className="mt-8 flex justify-between">
                     <Button onClick={() => setStep(step - 1)} variant="outline">Back</Button>
-                    <Button onClick={handleNext} disabled={!selectedService} className="bg-blue-600 hover:bg-blue-700">Next Step <ArrowRight className="ml-2 w-4 h-4" /></Button>
+                    <Button onClick={handleNext} disabled={!selectedService} className="bg-blue-600 hover:bg-blue-700">
+                      Next Step <ArrowRight className="ml-2 w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
               )}
@@ -203,7 +200,8 @@ export default function BookAppointment() {
                     </div>
                     <div>
                       <Label htmlFor="message">Additional Message (Optional)</Label>
-                      <Textarea id="message" name="message" value={formData.message} onChange={handleChange} placeholder="Tell us more about your goals..." className="mt-1 min-h-[100px]" />
+                      <Textarea id="message" name="message" value={formData.message} onChange={handleChange}
+                        placeholder="Tell us more about your goals..." className="mt-1 min-h-[100px]" />
                     </div>
                     <div className="flex justify-between">
                       <Button type="button" onClick={() => setStep(step - 1)} variant="outline">Back</Button>
@@ -219,7 +217,10 @@ export default function BookAppointment() {
                     <CheckCircle2 className="w-12 h-12 text-green-600" />
                   </div>
                   <h2 className="text-3xl text-blue-900 mb-4">Booking Confirmed!</h2>
-                  <p className="text-gray-600 mb-8">Your appointment has been successfully scheduled. We've sent a confirmation email to <span className="font-semibold">{formData.email}</span></p>
+                  <p className="text-gray-600 mb-8">
+                    Your appointment has been successfully scheduled. We've sent a confirmation email to{" "}
+                    <span className="font-semibold">{formData.email}</span>
+                  </p>
                   <Card className="bg-blue-50 border-blue-200 mb-8">
                     <CardContent className="p-6">
                       <h3 className="text-xl text-blue-900 mb-4">Appointment Details</h3>
